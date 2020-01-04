@@ -1,3 +1,1 @@
 # helloDataScience
-
-print("hello")
