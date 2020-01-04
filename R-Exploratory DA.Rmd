@@ -1,0 +1,164 @@
+---
+title: 'R : EDA (Exploratory Data Analysis)'
+author: "고은미"
+date: '2020 1 4 '
+output: html_document
+---
+
+# 라이브러리 설치 및 데이터 준비
+```{r}
+install.packages(c("dplyr", "ggplot2", "tidyr", "knitr", "grid"))
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(knitr)
+library(grid)
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+	library(grid)
+	
+	# Make a list from the ... arguments and plotlist
+	plots <- c(list(...), plotlist)
+	
+	numPlots = length(plots)
+	
+	# If layout is NULL, then use 'cols' to determine layout
+	if (is.null(layout)) {
+		# Make the panel
+		# ncol: Number of columns of plots
+		# nrow: Number of rows needed, calculated from # of cols
+		layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+						 ncol = cols, nrow = ceiling(numPlots/cols))
+	}
+	
+	if (numPlots==1) {
+		print(plots[[1]])
+		
+	} else {
+		# Set up the page
+		grid.newpage()
+		pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+		
+		# Make each plot, in the correct location
+		for (i in 1:numPlots) {
+			# Get the i,j matrix positions of the regions that contain this subplot
+			matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+			
+			print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+											layout.pos.col = matchidx$col))
+		}
+	}
+}
+
+mpg = read.table("mpg.txt", header=T, sep='\t')
+```
+
+# 표본 추출
+sample_n(data, n) : dplyr 패키지, data에서 n개 표본 추출
+kable() : knitr 패키지, 테이블을 보기좋게 출력
+```{r}
+kable(sample_n(mpg, 10))
+```
+
+# 개별 데이터 속성 살피기
+str(data) : data 자료형 확인 (factor : 카테고리형 데이터, levels : 각 속성에 존재하는 카테고리의 개수)
+```{r}
+str(mpg)
+```
+
+# 요약 통계
+```{r}
+summary(mpg)
+```
+
+# 시각화하여 전체 값 분포 살피기
+hwy : 고속도로 주행 연비
+```{r, fig.height=3, fig.width=10}
+a = ggplot(mpg, aes(hwy)) # 기본 플롯
+p1 = a + geom_density()   # 확률밀도함수 형태로 출력
+p2 = a + geom_histogram() # 히스토그램으로 출력
+p3 = a + geom_dotplot()   # 점플롯으로 출력
+multiplot(p1, p2, p3, cols=3)
+
+```
+
+# 속성 간 관계 분석하기
+- hwy : 고속도로 주행 연비
+- cty : 도시 주행 연비
+- cyl : 실린더 수
+- disp: 배기량
+1. 수치형 속성 간 상관계수
+   (1 : 연관성100%, 양수 : 연관성높음, 음수: 연관없음)
+2. 결과 : 높은 상관관계 (hwy<->cty, cyl<->disp)
+3. 차후 : 관심있는 속성들의 관계를 자세히 조사
+```{r, fig.width=7, fig.height=7}
+mpg.num = select(mpg, displ, year, cyl, cty, hwy)
+round(cor(mpg.num), 3) # 3 : 소수점 자리 수, 상관계수 분석
+plot(mpg.num)          # 각 속성 간 관계의 다양한 양상을 시각화
+                       # hwy<->cty:정비례, cyl<->disp:최소/최대 제한
+```
+
+# 속성 관계 분석1 : (카테고리-카테고리) cyl<->drv 
+1. (교차 테이블) 결과 
+ : 후륜 방식은 대부분 대형차(8), 전륜방식은 소/중형(4/6)
+2. (모자이크 플롯) 결과
+ : 실린더 수의 분포가 구동방식에 따라 다름
+ : 대부분의 차가 사륜 혹은 전륜 구동 방식
+- drv : 구동방식 (f: 전륜, r: 후륜, 4: 4륜)
+```{r}
+# 교차 테이블 : 카테고리형 속성 분석, 조합에 속하는 항목의 수 출력
+table(mpg$cyl, mpg$drv)
+# 모자이크 플롯 : 
+mosaicplot(table(mpg$drv, mpg$cyl), cex=1.2, main="")
+```
+
+# 속성 관계 분석2 : (수치-카테고리형) cyl<->hwy
+- 스캐터플롯 & 박스플롯
+  : (스캐터플롯) 개별 데이터 값 관찰
+  : (박스플롯) 데이터 대표 통계값을 한눈에 출력
+- jitter() : 같은 카테고리를 갖는 값들이 서로 안 겹치게 노이즈를 줌
+```{r, fig.width=10}
+par(mfrow=c(1,2))
+# c(1,1)
+plot(jitter(mpg$cyl), mpg$hwy, xlab="Year", ylab="MPG(hwy)")
+# c(1,2)
+boxplot(hwy~cyl, filter(mpg, cyl != 5), xlab="Year", ylab="MPG(hwy)")
+```
+
+# 속성 관계 분석3 : (수치-수치형) hwy(고속도로)-cty(도시주행연비)
+```{r}
+# 도시연비 vs 고속도로 연비 : 상관관계 0.96
+#  : 대부분의 값이 추세선 근처에 있음음
+p1 = ggplot(mpg, aes(hwy, cty)) + geom_point() + geom_smooth()
+# 배기량 vs 도시 연비 : 상관관계 -0.8
+# : 배기량이 높아지면 상관관계가 희박해짐
+p2 = ggplot(mpg, aes(displ, cty)) + geom_point() + geom_smooth()
+multiplot(p2, p1, cols=2)
+```
+
+# 탐색적 분석 : 세개 이상 속성 간 관계를 동시에 관찰(색상, 크기, 레이블 등)
+# 결과 : 밝은점(실린더 수가 많고, 배기량이 높은 차)이 좌측 하단에 분포
+```{r}
+ggplot(mpg, aes(hwy, cty)) + geom_point(aes(color=cyl, size=displ))
+```
+
+# 산포도 그래프/텍스트 레이블 적용
+```{r}
+# 메이저 제조사 목록 구하기
+majors = 
+  mpg %>%
+  group_by() %>%
+  summarize(count=n()) %>%
+  filter(count>10)
+
+# 메이저 제조사의 모델 구하기
+mpg.majors = 
+  mpg %>%
+  filter(manufacturer %in% majors$manufacturer) %>%
+  distinct(model)
+
+# 모델별 연비에 모델 이름을 추가한 플롯
+ggplot(mpg.majors, aes(hwy, cty)) +  #기본 플롯
+  geom_text(aes(label = model, color = manufacturer), size = 4, #텍스트 레이블 추가
+            position=position_jitter(width=1, height=2)) #노이즈 더함
+```
+
