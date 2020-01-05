@@ -55,7 +55,7 @@ mpg = read.table("mpg.txt", header=T, sep='\t')
 # 표본 추출
 sample_n(data, n) : dplyr 패키지, data에서 n개 표본 추출
 kable() : knitr 패키지, 테이블을 보기좋게 출력
-```{r}
+```{r, fig.height=1}
 kable(sample_n(mpg, 10))
 ```
 
@@ -81,7 +81,7 @@ multiplot(p1, p2, p3, cols=3)
 
 ```
 
-# 속성 간 관계 분석하기
+# 탐색적 분석 : 속성 간 관계 분석하기
 - hwy : 고속도로 주행 연비
 - cty : 도시 주행 연비
 - cyl : 실린더 수
@@ -97,7 +97,8 @@ plot(mpg.num)          # 각 속성 간 관계의 다양한 양상을 시각화
                        # hwy<->cty:정비례, cyl<->disp:최소/최대 제한
 ```
 
-# 속성 관계 분석1 : (카테고리-카테고리) cyl<->drv 
+# 속성 관계 분석1 : (카테고리-카테고리) 
+cyl<->drv 
 1. (교차 테이블) 결과 
  : 후륜 방식은 대부분 대형차(8), 전륜방식은 소/중형(4/6)
 2. (모자이크 플롯) 결과
@@ -111,7 +112,8 @@ table(mpg$cyl, mpg$drv)
 mosaicplot(table(mpg$drv, mpg$cyl), cex=1.2, main="")
 ```
 
-# 속성 관계 분석2 : (수치-카테고리형) cyl<->hwy
+# 속성 관계 분석2 : (수치-카테고리형) 
+cyl<->hwy
 - 스캐터플롯 & 박스플롯
   : (스캐터플롯) 개별 데이터 값 관찰
   : (박스플롯) 데이터 대표 통계값을 한눈에 출력
@@ -124,7 +126,8 @@ plot(jitter(mpg$cyl), mpg$hwy, xlab="Year", ylab="MPG(hwy)")
 boxplot(hwy~cyl, filter(mpg, cyl != 5), xlab="Year", ylab="MPG(hwy)")
 ```
 
-# 속성 관계 분석3 : (수치-수치형) hwy(고속도로)-cty(도시주행연비)
+# 속성 관계 분석3 : (수치-수치형) 
+hwy(고속도로)-cty(도시주행연비)
 ```{r}
 # 도시연비 vs 고속도로 연비 : 상관관계 0.96
 #  : 대부분의 값이 추세선 근처에 있음음
@@ -135,18 +138,19 @@ p2 = ggplot(mpg, aes(displ, cty)) + geom_point() + geom_smooth()
 multiplot(p2, p1, cols=2)
 ```
 
-# 탐색적 분석 : 세개 이상 속성 간 관계를 동시에 관찰(색상, 크기, 레이블 등)
-# 결과 : 밝은점(실린더 수가 많고, 배기량이 높은 차)이 좌측 하단에 분포
+# 속성 관계 분석4 : 3개 이상 속성 간 관계 분석 - 색상, 크기
+탐색적 분석 : 색상, 크기, 레이블 등
+결과 : 밝은점(실린더 수가 많고, 배기량이 높은 차)이 좌측 하단에 분포
 ```{r}
 ggplot(mpg, aes(hwy, cty)) + geom_point(aes(color=cyl, size=displ))
 ```
 
-# 산포도 그래프/텍스트 레이블 적용
+# 속성 관계 분석5 : 3개 이상 속성 간 관계 분석 - 텍스트레이블
 ```{r}
 # 메이저 제조사 목록 구하기
 majors = 
   mpg %>%
-  group_by() %>%
+  group_by(manufacturer) %>%
   summarize(count=n()) %>%
   filter(count>10)
 
@@ -154,11 +158,12 @@ majors =
 mpg.majors = 
   mpg %>%
   filter(manufacturer %in% majors$manufacturer) %>%
-  distinct(model)
+  group_by(model, manufacturer) %>%                             # distinct(model, manufacturer) 
+  summarize(hwy.mean = mean(hwy), cty.mean = mean(cty)) 
 
 # 모델별 연비에 모델 이름을 추가한 플롯
-ggplot(mpg.majors, aes(hwy, cty)) +  #기본 플롯
+ggplot(mpg.majors, aes(hwy.mean, cty.mean)) +                   #기본 플롯
   geom_text(aes(label = model, color = manufacturer), size = 4, #텍스트 레이블 추가
-            position=position_jitter(width=1, height=2)) #노이즈 더함
+            position=position_jitter(width=1, height=2))        #노이즈 더함
 ```
 
